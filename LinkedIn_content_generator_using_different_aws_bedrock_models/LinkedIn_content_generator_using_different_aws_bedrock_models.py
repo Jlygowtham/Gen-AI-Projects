@@ -58,7 +58,8 @@ class LinkedinPostGenerator:
             print("Final response: ",final_response)
             
             if isinstance(final_response,dict):
-                self.upload_file_to_s3(final_response)
+                final_response['file_key'] = self.upload_file_to_s3(final_response)
+                
             
             return final_response
         
@@ -107,6 +108,7 @@ class LinkedinPostGenerator:
                 s3.put_object(Bucket=bucket_name, Key=file_key, Body=content+format_hash_tags)
                 
                 print(f"Uploaded the object successfully: {file_key}")
+                return file_key
         
         except Exception as e:
             print(f"Error occured in upload_file_to_s3 function: {e}")
@@ -150,7 +152,9 @@ class LinkedinPostGenerator:
         if 'welcome_message' not in st.session_state:
             st.session_state['welcome_message'] = False
         
-        if not st.session_state['welcome_message']:
+        user_topic = st.chat_input("Tell me your topic - I'll craft your LinkedIn post!")
+        
+        if not st.session_state['welcome_message'] and not user_topic:
         
             st.title("🤖 AI-Powered LinkedIn Content & Hashtag Generator with AWS Bedrock Claude Sonnet 4")
             st.write("""
@@ -165,9 +169,11 @@ class LinkedinPostGenerator:
                     **Automated Cloud Storage**: Converts content to text files and uploads to AWS S3.
                     
                     **Dynamic File Management**: Creates unique, topic-based file names for organized storage.
+                    
+                    **Instant Download**: Download your generated content and hashtags as a ready-to-use text file.
                 """)
             
-        user_topic = st.chat_input("Tell me your topic - I'll craft your LinkedIn post!")
+        
         
         if user_topic:
             st.session_state['welcome_message'] = True
@@ -175,24 +181,43 @@ class LinkedinPostGenerator:
             user_message = st.chat_message('user')
             user_message.write(user_topic)
             
-            bot_message = st.chat_message('assistant')
             
-            with st.spinner('Generating the LinkedIn content...'):
-                llm_response = self.invoking_model(user_topic)
-            
-            if isinstance(llm_response,dict):
-                print(f"\n Content: {llm_response.get('content')}")
-                print(f"\n HashTags: {llm_response.get('hash_tags')}")
+            with st.chat_message('assistant'):
+                with st.spinner('Generating the LinkedIn content...'):
+                    llm_response = self.invoking_model(user_topic)
                 
-                bot_message.write(llm_response.get('content'))
-                bot_message.write(' '.join(f'**{hash_tag}**' for hash_tag in llm_response.get('hash_tags')))
-            
-            else:
-                print(f"llm response after invoking: {llm_response}")
-                bot_message.write(llm_response)
-              
+                if isinstance(llm_response,dict):
+                    print(f"\n Content: {llm_response.get('content')}")
+                    print(f"\n HashTags: {llm_response.get('hash_tags')}")
+                    
+                    content = llm_response.get('content')
+                    hash_tags = llm_response.get('hash_tags')
+                    file_key = llm_response.get('file_key')
+                    
+                    format_hash_tags= ' '.join(f'**{hash_tag}**' for hash_tag in hash_tags)
+                    
+                    st.markdown(content)
+                    st.markdown(format_hash_tags)
+                    
+                    if content and hash_tags and file_key:
+                        _,col2=st.columns([3,1])
+                        with col2:
+                            st.download_button(
+                                    label='Download File',
+                                    data = content+'\n'*3+format_hash_tags,
+                                    file_name=file_key,
+                                    on_click="ignore",
+                                    type='primary',
+                                    icon=":material/download:"
+                                )
+                
+                else:
+                    print(f"llm response after invoking: {llm_response}")
+                    st.write(llm_response)
+                
             
 
 if __name__ == "__main__":
     lpg=LinkedinPostGenerator()
     lpg.main()
+        
