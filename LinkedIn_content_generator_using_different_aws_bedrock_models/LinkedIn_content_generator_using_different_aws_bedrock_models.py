@@ -144,7 +144,18 @@ class LinkedinPostGenerator:
             </SystemPrompt>
             """
         return prompt
-
+    
+    @st.fragment
+    def download_button(self,content,hash_tags,file_key):
+        _,col2=st.columns([3,1])
+        with col2:
+            st.download_button(
+                    label='Download File',
+                    data = content+'\n'*3+hash_tags,
+                    file_name=file_key,
+                    type='primary',
+                    icon=":material/download:"
+                )
 
     def main(self):
         st.set_page_config(page_title="LinkedIn Content & Hashtag Generator using AWS Bedrock Claude Sonnet 4", page_icon="🤖")
@@ -195,27 +206,19 @@ class LinkedinPostGenerator:
                     file_key = llm_response.get('file_key')
                     
                     format_hash_tags= ' '.join(f'**{hash_tag}**' for hash_tag in hash_tags)
+                    without_format_hash_tags = ' '.join(hash_tags)
                     
                     st.markdown(content)
                     st.markdown(format_hash_tags)
                     
                     if content and hash_tags and file_key:
-                        _,col2=st.columns([3,1])
-                        with col2:
-                            st.download_button(
-                                    label='Download File',
-                                    data = content+'\n'*3+format_hash_tags,
-                                    file_name=file_key,
-                                    on_click="ignore",
-                                    type='primary',
-                                    icon=":material/download:"
-                                )
+                        self.download_button(content,without_format_hash_tags,file_key)
                 
                 else:
                     print(f"llm response after invoking: {llm_response}")
                     st.write(llm_response)
-                
-            
+                    
+    
 
 if __name__ == "__main__":
     lpg=LinkedinPostGenerator()
